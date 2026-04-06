@@ -1,0 +1,44 @@
+{
+  "bouquet-builder": {
+    "studio": "Crochet Bouquet Studio",
+    "title": "Build Your Own Bouquet",
+    "subtitle": "Pick your favourite crochet flowers — tap a card to add it to your bouquet.",
+    "summary": "Your bouquet ({count})",
+    "clearAll": "Clear all",
+    "empty": "No flowers in this category yet.",
+    "hint": "Select flowers above to start building your bouquet ✂️🌷",
+    "categories": {
+      "all": "All",
+      "classic": "Classic",
+      "garden": "Garden",
+      "exotic": "Exotic",
+      "wild": "Wild"
+    }
+  },
+  "flowers": {
+    "red-rose": {
+      "name": "Red Rose",
+      "alt": "A vibrant red rose in full bloom"
+    },
+    "white-lily": {
+      "name": "White Lily",
+      "alt": "Elegant white lily with open petals"
+    },
+    "sunflower": {
+      "name": "Sunflower",
+      "alt": "Bright yellow sunflower facing the sun"
+    },
+    "lavender": {
+      "name": "Lavender",
+      "alt": "Soft purple lavender stems in a field"
+    },
+    "tulip-pink": {
+      "name": "Pink Tulip",
+      "alt": "Delicate pink tulip with smooth petals"
+    },
+    "orchid-purple": {
+      "name": "Purple Orchid",
+      "alt": "Exotic purple orchid on a dark background"
+    }
+  }
+}
