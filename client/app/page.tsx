@@ -1,47 +1,64 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useCallback, useEffect } from "react";
+import { useLocale } from "./context/LocaleContext";
 import { FLOWERS, getFlowersByCategory } from "@/data/flowers";
 import type { Flower, FlowerCategory } from "@/type/flower";
 import { FlowerCard, FLOWER_COLORS, type FlowerColorId } from "@/components/FlowerCard";
+import { SakuraBackground } from "@/components/SakuraBackground";
+import { generateBouquet } from "@/lib/bouquetApi";
 
-const CATEGORIES: { value: "all" | FlowerCategory; labelKey: string }[] = [
-  { value: "all",     labelKey: "categories.all"     },
-  { value: "classic", labelKey: "categories.classic" },
-  { value: "garden",  labelKey: "categories.garden"  },
-  { value: "exotic",  labelKey: "categories.exotic"  },
-  { value: "wild",    labelKey: "categories.wild"    },
+const CATEGORIES: { value: "all" | FlowerCategory; key: string }[] = [
+  { value: "all",     key: "categories.all"     },
+  { value: "classic", key: "categories.classic" },
+  { value: "garden",  key: "categories.garden"  },
+  { value: "exotic",  key: "categories.exotic"  },
+  { value: "wild",    key: "categories.wild"    },
 ];
 
 interface BouquetItem {
   flower: Flower;
   color: FlowerColorId | null;
+  quantity: number;
 }
 
 export default function BouquetBuilderPage() {
-  const t  = useTranslations("bouquet-builder");
-  const tf = useTranslations("flowers");
+  const { t, switchLocale } = useLocale();
 
-  const [bouquet, setBouquet] = useState<BouquetItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | FlowerCategory>("all");
-  const [dark, setDark] = useState(false);
+  const tb = (key: string, params?: Record<string, string | number>) =>
+    t(`bouquet-builder.${key}`, params);
+  const tf = (key: string) => t(`flowers.${key}`);
+  const tl = (key: string) => t(`language.${key}`);
+
+  const [bouquet, setBouquet]                   = useState<BouquetItem[]>([]);
+  const [activeTab, setActiveTab]               = useState<"all" | FlowerCategory>("all");
+  const [dark, setDark]                         = useState(false);
+  const [generating, setGenerating]             = useState(false);
+  const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
+  const [generateError, setGenerateError]       = useState<string | null>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   const visibleFlowers = activeTab === "all" ? FLOWERS : getFlowersByCategory(activeTab);
-
-  const countFor = (id: string) => bouquet.filter((b) => b.flower.id === id).length;
-  const isSelected = (id: string) => countFor(id) > 0;
-  const colorFor = (id: string): FlowerColorId | null =>
-    bouquet.find((b) => b.flower.id === id)?.color ?? null;
+  const itemFor     = (id: string) => bouquet.find((b) => b.flower.id === id);
+  const isSelected  = (id: string) => !!itemFor(id);
+  const quantityFor = (id: string) => itemFor(id)?.quantity ?? 1;
+  const colorFor    = (id: string) => itemFor(id)?.color ?? null;
 
   const handleToggle = useCallback((flower: Flower) => {
     setBouquet((prev) => {
-      const idx = prev.findLastIndex((b) => b.flower.id === flower.id);
-      if (idx === -1) return [...prev, { flower, color: null }];
-      const next = [...prev];
-      next.splice(idx, 1);
-      return next;
+      const exists = prev.find((b) => b.flower.id === flower.id);
+      if (exists) return prev.filter((b) => b.flower.id !== flower.id);
+      return [...prev, { flower, color: null, quantity: 1 }];
     });
+  }, []);
+
+  const handleQuantityChange = useCallback((flowerId: string, qty: number) => {
+    setBouquet((prev) =>
+      prev.map((b) => (b.flower.id === flowerId ? { ...b, quantity: qty } : b))
+    );
   }, []);
 
   const handleColorChange = useCallback((flowerId: string, color: FlowerColorId) => {
@@ -50,127 +67,231 @@ export default function BouquetBuilderPage() {
     );
   }, []);
 
-  const uniqueInBouquet = Array.from(
-    new Map(bouquet.map((b) => [b.flower.id, b])).values()
-  );
+  const handleGenerateBouquet = async () => {
+    if (bouquet.length === 0) return;
+    setGenerating(true);
+    setGeneratedPreview(null);
+    setGenerateError(null);
+    try {
+      const result = await generateBouquet(
+        bouquet.map((item) => ({
+          imagePath: item.flower.imagePath,
+          name: tf(`${item.flower.nameKey}.name`),
+          color: item.color,
+          quantity: item.quantity,
+        }))
+      );
+      setGeneratedPreview(result);
+    } catch {
+      setGenerateError(tb("notepad.error"));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleClearAll = () => {
+    setBouquet([]);
+    setGeneratedPreview(null);
+    setGenerateError(null);
+  };
+
+  const totalItems = bouquet.reduce((sum, b) => sum + b.quantity, 0);
+  const stemsLabel = totalItems === 1
+    ? tb("notepad.stems_one", { count: totalItems })
+    : tb("notepad.stems_other", { count: totalItems });
 
   return (
-    <div className={dark ? "dark" : ""}>
-      <div className="min-h-screen bg-stone-50 dark:bg-stone-950 transition-colors duration-300">
+    <div className="relative min-h-screen">
+      <SakuraBackground dark={dark} />
 
-        {/* ── Header ── */}
-        <header className="bg-white dark:bg-stone-900 border-b border-stone-100 dark:border-stone-800 px-6 py-12 text-center relative">
-          {/* Dark mode toggle */}
-          <button
-            onClick={() => setDark((d) => !d)}
-            className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
-          >
-            {dark ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-          </button>
+      <div className="relative z-10">
+        <header className="px-6 py-12 text-center relative">
 
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-400 mb-2">
-            {t("studio")}
+          <div className="absolute right-6 top-6 flex items-center gap-2">
+            <button
+              onClick={switchLocale}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold backdrop-blur-sm bg-white/30 dark:bg-white/10 border border-white/40 dark:border-white/20 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/20 transition-all"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              {tl("switch")}
+            </button>
+
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm bg-white/30 dark:bg-white/10 border border-white/40 dark:border-white/20 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/20 transition-all"
+              aria-label="Toggle dark mode"
+            >
+              {dark ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-rose-500 dark:text-rose-400 mb-2">
+            {tb("studio")}
           </p>
-          <h1 className="text-4xl font-bold text-stone-900 dark:text-stone-50 tracking-tight sm:text-5xl">
-            {t("title")}
+          <h1 className="text-5xl font-bold tracking-tight text-slate-800 dark:text-white sm:text-6xl">
+            {tb("title")}
           </h1>
-          <p className="mt-3 text-stone-500 dark:text-stone-400 text-base max-w-md mx-auto">
-            {t("subtitle")}
+          <p className="mt-4 text-slate-500 dark:text-slate-300 text-base max-w-md mx-auto leading-relaxed">
+            {tb("subtitle")}
           </p>
         </header>
 
-        {/* ── Sticky bouquet bar ── */}
-        {bouquet.length > 0 && (
-          <div className="sticky top-0 z-20 bg-rose-50 dark:bg-rose-950/60 border-b border-rose-100 dark:border-rose-900 px-6 py-3 shadow-sm backdrop-blur-sm">
-            <div className="mx-auto max-w-5xl flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold text-rose-700 dark:text-rose-400">
-                  🌸 {t("summary", { count: bouquet.length })}
-                </span>
-                {uniqueInBouquet.map(({ flower, color }) => {
-                  const count = countFor(flower.id);
-                  const colorHex = color ? FLOWER_COLORS.find((c) => c.id === color)?.hex : null;
-                  return (
-                    <span
-                      key={flower.id}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-white dark:bg-stone-800 px-3 py-0.5 text-xs font-medium text-stone-700 dark:text-stone-300 ring-1 ring-stone-200 dark:ring-stone-700 shadow-sm"
-                    >
-                      {colorHex && (
-                        <span className="h-2.5 w-2.5 rounded-full border border-stone-200 dark:border-stone-600" style={{ backgroundColor: colorHex }} />
-                      )}
-                      {tf(flower.nameKey)}
-                      {count > 1 && (
-                        <span className="rounded-full bg-rose-400 px-1.5 py-px text-[10px] font-bold text-white">
-                          ×{count}
-                        </span>
-                      )}
-                    </span>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setBouquet([])}
-                className="rounded-full border border-rose-200 dark:border-rose-800 bg-white dark:bg-stone-900 px-4 py-1 text-xs font-medium text-rose-500 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
-              >
-                {t("clearAll")}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Main ── */}
-        <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-
-          {/* Category tabs */}
+        <div className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
           <div className="mb-8 flex flex-wrap gap-2">
-            {CATEGORIES.map(({ value, labelKey }) => (
+            {CATEGORIES.map(({ value, key }) => (
               <button
                 key={value}
                 onClick={() => setActiveTab(value)}
                 className={
                   activeTab === value
                     ? "rounded-full bg-rose-500 px-5 py-1.5 text-sm font-semibold text-white shadow-sm"
-                    : "rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-5 py-1.5 text-sm font-medium text-stone-500 dark:text-stone-400 hover:border-rose-300 hover:text-rose-500 transition-colors"
+                    : "rounded-full backdrop-blur-sm bg-white/50 dark:bg-white/10 border border-white/60 dark:border-white/20 px-5 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-white/70 dark:hover:bg-white/20 transition-all"
                 }
               >
-                {t(labelKey)}
+                {tb(key)}
               </button>
             ))}
           </div>
 
-          {/* Flower grid */}
-          {visibleFlowers.length === 0 ? (
-            <p className="py-24 text-center text-stone-400 text-sm">{t("empty")}</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {visibleFlowers.map((flower) => (
-                <FlowerCard
-                  key={flower.id}
-                  flower={flower}
-                  isSelected={isSelected(flower.id)}
-                  selectedCount={countFor(flower.id)}
-                  selectedColor={colorFor(flower.id)}
-                  onToggle={handleToggle}
-                  onColorChange={handleColorChange}
-                />
-              ))}
+          <div className="flex gap-6 items-start">
+            <div className="flex-1 min-w-0">
+              {visibleFlowers.length === 0 ? (
+                <p className="py-24 text-center text-slate-400 text-sm">{tb("empty")}</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {visibleFlowers.map((flower) => (
+                    <FlowerCard
+                      key={flower.id}
+                      flower={flower}
+                      isSelected={isSelected(flower.id)}
+                      quantity={quantityFor(flower.id)}
+                      selectedColor={colorFor(flower.id)}
+                      onToggle={handleToggle}
+                      onQuantityChange={handleQuantityChange}
+                      onColorChange={handleColorChange}
+                    />
+                  ))}
+                </div>
+              )}
+              {bouquet.length === 0 && (
+                <p className="mt-10 text-center text-sm text-slate-400 dark:text-slate-500">
+                  {tb("hint")}
+                </p>
+              )}
             </div>
-          )}
 
-          {bouquet.length === 0 && (
-            <p className="mt-10 text-center text-sm text-stone-400 dark:text-stone-600">
-              {t("hint")}
-            </p>
-          )}
-        </main>
+            <div className="w-72 shrink-0 sticky top-6">
+              <div
+                className="relative overflow-hidden rounded-2xl shadow-xl"
+                style={{
+                  backgroundImage: dark
+                    ? `repeating-linear-gradient(transparent, transparent 31px, rgba(147,197,253,0.08) 31px, rgba(147,197,253,0.08) 32px),
+                       linear-gradient(90deg, transparent 44px, rgba(252,165,165,0.12) 44px, rgba(252,165,165,0.12) 45px, transparent 45px)`
+                    : `repeating-linear-gradient(transparent, transparent 31px, rgba(147,197,253,0.28) 31px, rgba(147,197,253,0.28) 32px),
+                       linear-gradient(90deg, transparent 44px, rgba(252,165,165,0.4) 44px, rgba(252,165,165,0.4) 45px, transparent 45px)`,
+                  backgroundSize: "100% 32px, 100% 100%",
+                  backgroundColor: dark ? "rgb(15 23 42)" : "rgb(255 253 244)",
+                  border: dark ? "1px solid rgba(147,197,253,0.18)" : "1px solid rgba(203,213,225,0.7)",
+                  minHeight: "400px",
+                }}
+              >
+                <div className="absolute top-0 bottom-0 w-px" style={{ left: "44px", background: dark ? "rgba(248,113,113,0.28)" : "rgba(248,113,113,0.5)" }} />
+
+                <div className="relative z-10 pl-14 pr-5 pt-7 pb-7">
+                  <p className="text-base font-bold mb-0.5 leading-snug" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(255 255 255)" : "rgb(15 23 42)" }}>
+                    {tb("notepad.title")}
+                  </p>
+                  <p className="text-[11px] tracking-wide mb-4" style={{ color: dark ? "rgb(148 163 184)" : "rgb(100 116 139)" }}>
+                    {totalItems === 0 ? tb("notepad.empty") : stemsLabel}
+                  </p>
+
+                  <div className="border-t mb-4" style={{ borderColor: dark ? "rgba(147,197,253,0.15)" : "rgba(203,213,225,0.7)" }} />
+
+                  {bouquet.length === 0 ? (
+                    <p className="text-sm italic leading-relaxed" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(71 85 105)" : "rgb(148 163 184)" }}>
+                      {tb("notepad.placeholder")}
+                    </p>
+                  ) : (
+                    <div>
+                      {bouquet.map((item) => {
+                        const colorObj = FLOWER_COLORS.find((c) => c.id === item.color);
+                        return (
+                          <div key={item.flower.id} className="flex items-start gap-2.5 py-[6px]">
+                            {colorObj ? (
+                              <span className="mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/40" style={{ backgroundColor: colorObj.hex }} />
+                            ) : (
+                              <span className="mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full border border-dashed" style={{ borderColor: dark ? "rgb(71 85 105)" : "rgb(203 213 225)" }} />
+                            )}
+                            <span className="text-sm leading-snug" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(226 232 240)" : "rgb(15 23 42)" }}>
+                              {item.quantity}× {tf(`${item.flower.nameKey}`)}
+                              {colorObj && (
+                                <span className="block text-[11px] mt-0.5" style={{ color: dark ? "rgb(100 116 139)" : "rgb(148 163 184)" }}>
+                                  {colorObj.label}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      <div className="mt-5 space-y-2">
+                        <button
+                          onClick={handleGenerateBouquet}
+                          disabled={generating}
+                          className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-all disabled:opacity-60"
+                          style={{ background: generating ? "rgb(148 163 184)" : "linear-gradient(135deg, #f43f8a, #ec4899, #a855f7)" }}
+                        >
+                          {generating ? tb("notepad.generating") : tb("notepad.preview_button")}
+                        </button>
+                        <button
+                          onClick={handleClearAll}
+                          className="w-full text-[11px] underline underline-offset-2 transition-colors"
+                          style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(248 113 113)" : "rgb(251 113 133)" }}
+                        >
+                          {tb("notepad.clear")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {generateError && (
+                    <p className="mt-3 text-xs" style={{ color: dark ? "rgb(248 113 113)" : "rgb(239 68 68)" }}>
+                      {generateError}
+                    </p>
+                  )}
+
+                  {generatedPreview && (
+                    <div className="mt-5">
+                      <div className="border-t mb-3" style={{ borderColor: dark ? "rgba(147,197,253,0.15)" : "rgba(203,213,225,0.7)" }} />
+                      <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: dark ? "rgb(100 116 139)" : "rgb(148 163 184)" }}>
+                        {tb("notepad.ai_preview_label")}
+                      </p>
+                      <p className="text-sm leading-relaxed" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(226 232 240)" : "rgb(15 23 42)" }}>
+                        {generatedPreview}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

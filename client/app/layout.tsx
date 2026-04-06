@@ -1,19 +1,14 @@
+// app/layout.tsx
+import { LocaleProvider } from "./context/LocaleContext";
 import "./globals.css";
-import { NextIntlClientProvider } from "next-intl";
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const messages = (await import("../messages/en.json")).default;
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <NextIntlClientProvider messages={messages}>
+        <LocaleProvider>
           {children}
-        </NextIntlClientProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

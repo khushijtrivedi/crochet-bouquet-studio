@@ -7,6 +7,18 @@
     "clearAll": "Clear all",
     "empty": "No flowers in this category yet.",
     "hint": "Select flowers above to start building your bouquet ✂️🌷",
+    "notepad": {
+      "title": "My Bouquet ✿",
+      "empty": "Nothing added yet",
+      "stems_one": "{count} stem total",
+      "stems_other": "{count} stems total",
+      "placeholder": "Pick some flowers and they'll appear here...",
+      "preview_button": "✨ Preview Bouquet",
+      "generating": "Generating…",
+      "ai_preview_label": "AI Preview",
+      "clear": "Clear all",
+      "error": "Something went wrong. Please try again."
+    },
     "categories": {
       "all": "All",
       "classic": "Classic",
@@ -40,5 +52,9 @@
       "name": "Purple Orchid",
       "alt": "Exotic purple orchid on a dark background"
     }
+  },
+  "language": {
+    "switch": "हिन्दी",
+    "current": "English"
   }
 }
