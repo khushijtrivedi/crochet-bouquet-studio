@@ -1,67 +1,52 @@
 # Crochet Bouquet Studio
 
-A web app to create custom crochet flower bouquets, customize them, and preview them using AI-generated images.
+A web app to build custom crochet bouquets and preview them using an AI-assisted pipeline.
 
 ---
 
-## Features (Frontend)
+## Features
 
-- Browse a collection of crochet flowers  
-- Customize each flower with:
-  - Color selection  
-  - Quantity selection  
-- Add and remove flowers from a bouquet  
-- Live bouquet summary with a notepad-style interface  
-- Dark and light mode toggle  
-- Language switching (English and Hindi)  
-- Improved UI with interactive components  
+### Frontend
+- Flower selection (cards)
+- Color selection
+- Quantity / variants
+- Bouquet display (summary)
+- Language switch (English / Hindi)
+- Dark / light theme
+
+### Backend
+- API route: `/generate`
+- Request schema (type, color, quantity)
+- Service layer
+- Image mapping (flower → image path)
+- Basic composition flow (in progress)
 
 ---
 
-## Current Functionality
+## Completed
 
-- Bouquet state management implemented (add, remove, update flowers)  
-- Dynamic filtering by flower categories  
-- Real-time UI updates based on user selections  
-- Image assets integrated and displayed correctly  
-- Frontend API layer prepared for bouquet generation  
+- Frontend page (cards, selection, state)
+- Color + quantity handling
+- Bouquet display
+- Language + theme setup
+- Frontend sends request to backend
+- Backend endpoint created
+- Route, schema, service structure
+- Image mapping setup (flower → image)
+
+---
+
+## Pending
+
+- Image composition logic
+- AI integration
+- Full pipeline (compose → AI → response)
+- Error handling
 
 ---
 
 ## Tech Stack
 
-- Frontend: Next.js (App Router)  
-- State Management: React Hooks  
-- Styling: Tailwind CSS  
-- Backend (planned): FastAPI  
-- AI (planned): Stable Diffusion (via Hugging Face)  
-
----
-
-## Current Status
-
-### Completed
-
-- Frontend UI and interaction logic  
-- Flower selection, customization, and display  
-- Theme switching (dark and light)  
-- Language toggle (English and Hindi)  
-- API integration layer on frontend  
-
-### In Progress
-
-- Backend API implementation  
-- AI bouquet generation integration  
-
----
-
-## Getting Started
-
-### Frontend
-
-```bash
-cd client
-pnpm dev 
-
-OR
-make dev-client
+- Frontend: Next.js, React, Tailwind CSS
+- Backend: FastAPI, Pydantic
+- AI (planned): Stable Diffusion (Hugging Face)
