@@ -53,6 +53,13 @@
       "alt": "गहरे रंग की पृष्ठभूमि पर विदेशी बैंगनी ऑर्किड"
     }
   },
+  "flowerCard": {
+    "variant": "वेरिएंट {number}",
+    "colour": "रंग",
+    "remove": "हटाएं",
+    "quantity": "मात्रा",
+    "add_variant": "+ रंग वेरिएंट जोड़ें"
+  },
   "language": {
     "switch": "English",
     "current": "हिन्दी"

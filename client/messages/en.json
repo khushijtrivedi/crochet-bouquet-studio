@@ -53,6 +53,13 @@
       "alt": "Exotic purple orchid on a dark background"
     }
   },
+  "flowerCard": {
+  "variant": "Variant {number}",
+  "colour": "Colour",
+  "remove": "Remove",
+  "quantity": "Quantity",
+  "add_variant": "+ Add colour variant"
+},
   "language": {
     "switch": "हिन्दी",
     "current": "English"
