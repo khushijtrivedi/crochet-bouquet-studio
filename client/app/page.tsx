@@ -16,11 +16,17 @@ const CATEGORIES: { value: "all" | FlowerCategory; key: string }[] = [
   { value: "wild",    key: "categories.wild"    },
 ];
 
-interface BouquetItem {
+// Each "instance" is one flower + one color combination.
+// A single flower can have multiple instances (e.g. 1 red rose + 1 pink rose).
+export interface BouquetInstance {
+  instanceId: string;
   flower: Flower;
   color: FlowerColorId | null;
   quantity: number;
 }
+
+let _counter = 0;
+const makeInstanceId = (flowerId: string) => `${flowerId}-${++_counter}`;
 
 export default function BouquetBuilderPage() {
   const { t, switchLocale } = useLocale();
@@ -30,7 +36,7 @@ export default function BouquetBuilderPage() {
   const tf = (key: string) => t(`flowers.${key}`);
   const tl = (key: string) => t(`language.${key}`);
 
-  const [bouquet, setBouquet]                   = useState<BouquetItem[]>([]);
+  const [bouquet, setBouquet]                   = useState<BouquetInstance[]>([]);
   const [activeTab, setActiveTab]               = useState<"all" | FlowerCategory>("all");
   const [dark, setDark]                         = useState(false);
   const [generating, setGenerating]             = useState(false);
@@ -41,29 +47,44 @@ export default function BouquetBuilderPage() {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
-  const visibleFlowers = activeTab === "all" ? FLOWERS : getFlowersByCategory(activeTab);
-  const itemFor     = (id: string) => bouquet.find((b) => b.flower.id === id);
-  const isSelected  = (id: string) => !!itemFor(id);
-  const quantityFor = (id: string) => itemFor(id)?.quantity ?? 1;
-  const colorFor    = (id: string) => itemFor(id)?.color ?? null;
+  const visibleFlowers  = activeTab === "all" ? FLOWERS : getFlowersByCategory(activeTab);
+  const instancesFor    = (id: string) => bouquet.filter((b) => b.flower.id === id);
+  const isSelected      = (id: string) => bouquet.some((b) => b.flower.id === id);
 
+  // Click card → add first instance. Click again (when selected) → remove ALL instances.
   const handleToggle = useCallback((flower: Flower) => {
     setBouquet((prev) => {
-      const exists = prev.find((b) => b.flower.id === flower.id);
-      if (exists) return prev.filter((b) => b.flower.id !== flower.id);
-      return [...prev, { flower, color: null, quantity: 1 }];
+      const has = prev.some((b) => b.flower.id === flower.id);
+      if (has) return prev.filter((b) => b.flower.id !== flower.id);
+      return [...prev, { instanceId: makeInstanceId(flower.id), flower, color: null, quantity: 1 }];
     });
   }, []);
 
-  const handleQuantityChange = useCallback((flowerId: string, qty: number) => {
+  // "＋ Add colour" button inside the card
+  const handleAddVariant = useCallback((flower: Flower) => {
+    setBouquet((prev) => [
+      ...prev,
+      { instanceId: makeInstanceId(flower.id), flower, color: null, quantity: 1 },
+    ]);
+  }, []);
+
+  // Remove one specific colour variant
+  const handleRemoveInstance = useCallback((instanceId: string) => {
+    setBouquet((prev) => {
+      const next = prev.filter((b) => b.instanceId !== instanceId);
+      return next;
+    });
+  }, []);
+
+  const handleQuantityChange = useCallback((instanceId: string, qty: number) => {
     setBouquet((prev) =>
-      prev.map((b) => (b.flower.id === flowerId ? { ...b, quantity: qty } : b))
+      prev.map((b) => (b.instanceId === instanceId ? { ...b, quantity: qty } : b))
     );
   }, []);
 
-  const handleColorChange = useCallback((flowerId: string, color: FlowerColorId) => {
+  const handleColorChange = useCallback((instanceId: string, color: FlowerColorId) => {
     setBouquet((prev) =>
-      prev.map((b) => (b.flower.id === flowerId ? { ...b, color } : b))
+      prev.map((b) => (b.instanceId === instanceId ? { ...b, color } : b))
     );
   }, []);
 
@@ -75,8 +96,7 @@ export default function BouquetBuilderPage() {
     try {
       const result = await generateBouquet(
         bouquet.map((item) => ({
-          imagePath: item.flower.imagePath,
-          name: tf(`${item.flower.nameKey}.name`),
+          id: item.flower.id,
           color: item.color,
           quantity: item.quantity,
         }))
@@ -97,7 +117,7 @@ export default function BouquetBuilderPage() {
 
   const totalItems = bouquet.reduce((sum, b) => sum + b.quantity, 0);
   const stemsLabel = totalItems === 1
-    ? tb("notepad.stems_one", { count: totalItems })
+    ? tb("notepad.stems_one",  { count: totalItems })
     : tb("notepad.stems_other", { count: totalItems });
 
   return (
@@ -106,7 +126,6 @@ export default function BouquetBuilderPage() {
 
       <div className="relative z-10">
         <header className="px-6 py-12 text-center relative">
-
           <div className="absolute right-6 top-6 flex items-center gap-2">
             <button
               onClick={switchLocale}
@@ -119,7 +138,6 @@ export default function BouquetBuilderPage() {
               </svg>
               {tl("switch")}
             </button>
-
             <button
               onClick={() => setDark((d) => !d)}
               className="flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm bg-white/30 dark:bg-white/10 border border-white/40 dark:border-white/20 text-slate-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-white/20 transition-all"
@@ -179,10 +197,11 @@ export default function BouquetBuilderPage() {
                     <FlowerCard
                       key={flower.id}
                       flower={flower}
+                      instances={instancesFor(flower.id)}
                       isSelected={isSelected(flower.id)}
-                      quantity={quantityFor(flower.id)}
-                      selectedColor={colorFor(flower.id)}
                       onToggle={handleToggle}
+                      onAddVariant={handleAddVariant}
+                      onRemoveInstance={handleRemoveInstance}
                       onQuantityChange={handleQuantityChange}
                       onColorChange={handleColorChange}
                     />
@@ -196,6 +215,7 @@ export default function BouquetBuilderPage() {
               )}
             </div>
 
+            {/* ── Notepad sidebar ── */}
             <div className="w-72 shrink-0 sticky top-6">
               <div
                 className="relative overflow-hidden rounded-2xl shadow-xl"
@@ -232,7 +252,7 @@ export default function BouquetBuilderPage() {
                       {bouquet.map((item) => {
                         const colorObj = FLOWER_COLORS.find((c) => c.id === item.color);
                         return (
-                          <div key={item.flower.id} className="flex items-start gap-2.5 py-[6px]">
+                          <div key={item.instanceId} className="flex items-start gap-2.5 py-[6px]">
                             {colorObj ? (
                               <span className="mt-[5px] h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white/40" style={{ backgroundColor: colorObj.hex }} />
                             ) : (

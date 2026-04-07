@@ -2,93 +2,83 @@
  * bouquetApi.ts
  * Place at: lib/bouquetApi.ts
  *
- * Sends selected flowers to POST /api/generate
- * Images are converted to base64 before sending — image paths are
- * never exposed in the request, making the API harder to reverse-engineer.
+ * Sends selected flowers to POST /api/generate as structured JSON.
+ * NO base64 encoding — the backend owns the images and maps types to paths.
  */
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+/** What the page/component passes in. */
 export interface BouquetInput {
-  imagePath: string;   // local path — only used client-side to fetch & encode
-  name: string;
+  /** Flower ID (e.g. "red-rose") — sent as `type` to the backend. */
+  id: string;
   color: string | null;
   quantity: number;
 }
 
-export interface BouquetFlowerPayload {
-  imageBase64: string; // base64-encoded image data (no path exposed)
-  mimeType: string;
-  name: string;
+/** Shape of each flower in the POST body. */
+interface FlowerPayload {
+  type: string;
   color: string | null;
   quantity: number;
 }
 
-export interface GenerateBouquetResponse {
-  description: string;
+/** What the backend returns for each flower. */
+interface FlowerItemEcho {
+  type: string;
+  color: string | null;
+  quantity: number;
+  image_path: string | null;
 }
 
-/**
- * Fetches an image from its local path and converts it to base64.
- * The original path is never sent to the server.
- */
-async function encodeImageToBase64(imagePath: string): Promise<{ base64: string; mimeType: string }> {
-  const url = imagePath.startsWith("http")
-    ? imagePath
-    : window.location.origin + imagePath;
-
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch image: ${imagePath}`);
-
-  const blob = await res.blob();
-  const mimeType = blob.type || "image/jpeg";
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // Strip the "data:image/...;base64," prefix — send raw base64 only
-      const base64 = (reader.result as string).split(",")[1];
-      resolve({ base64, mimeType });
-    };
-    reader.onerror = () => reject(new Error("Failed to encode image"));
-    reader.readAsDataURL(blob);
-  });
+/** Full backend response. */
+interface GenerateResponse {
+  message: string;
+  data: FlowerItemEcho[];
 }
 
+// ── API base URL ──────────────────────────────────────────────────────────────
+// In dev the Next.js proxy rewrites /api/* → FastAPI on port 8000.
+// In prod, point NEXT_PUBLIC_API_URL at your deployed backend.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+// ── Public image base URL ─────────────────────────────────────────────────────
+// Images are now served from FastAPI's /assets mount.
+export const IMAGE_BASE =
+  process.env.NEXT_PUBLIC_IMAGE_BASE_URL ?? "http://localhost:8000";
+
+// ── Main export ───────────────────────────────────────────────────────────────
+
 /**
- * Sends selected flowers to /api/generate.
- * Images are sent as base64 — paths are never in the request body.
- *
- * Expected response: { description: string }
+ * Sends selected flowers to POST /api/generate.
+ * Returns the backend's `message` string (will be AI description later).
  */
 export async function generateBouquet(items: BouquetInput[]): Promise<string> {
   if (items.length === 0) throw new Error("No flowers selected");
 
-  // Encode all images to base64 in parallel
-  const flowers: BouquetFlowerPayload[] = await Promise.all(
-    items.map(async (item) => {
-      const { base64, mimeType } = await encodeImageToBase64(item.imagePath);
-      return {
-        imageBase64: base64,
-        mimeType,
-        name: item.name,
-        color: item.color,
-        quantity: item.quantity,
-      };
-    })
-  );
+  const flowers: FlowerPayload[] = items.map((item) => ({
+    type: item.id,
+    color: item.color,
+    quantity: item.quantity,
+  }));
 
-  const response = await fetch("/api/generate", {
+  const response = await fetch(`${API_BASE}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ flowers }),
+    body: JSON.stringify({
+      flowers,
+      prompt: "a beautiful bouquet",
+    }),
   });
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(
-      (err as { message?: string }).message ?? "Failed to generate bouquet"
+      (err as { detail?: string }).detail ?? "Failed to generate bouquet"
     );
   }
 
-  const data = (await response.json()) as GenerateBouquetResponse;
-  return data.description;
+  const data: GenerateResponse = await response.json();
+  return data.message; // swap for data.description once AI is wired up
 }

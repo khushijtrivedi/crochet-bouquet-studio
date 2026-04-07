@@ -1,6 +1,29 @@
+/**
+ * data/flowers.ts
+ *
+ * Images are now served by the FastAPI backend at:
+ *   http://localhost:8000/assets/flowers/<filename>
+ *
+ * Use the IMAGE_BASE export from bouquetApi if you need the full URL at
+ * runtime; here we store the path portion only so Next.js <Image> can
+ * use a loader or you can prefix at render time.
+ *
+ * For next/image to load external URLs you must add the backend hostname
+ * to next.config.js:
+ *
+ *   images: {
+ *     remotePatterns: [{ hostname: "localhost" }],
+ *   }
+ */
+
 import type { Flower, FlowersByCategory } from "../type/flower";
 
-const IMG = "/images/flowers";
+// Base URL for backend-served images.
+// Override via NEXT_PUBLIC_IMAGE_BASE_URL in .env.local for prod.
+const IMG_BASE =
+  process.env.NEXT_PUBLIC_IMAGE_BASE_URL ?? "http://localhost:8000";
+
+const IMG = `${IMG_BASE}/assets/flowers`;
 
 export const FLOWERS: Flower[] = [
   {
@@ -47,7 +70,8 @@ export const FLOWERS: Flower[] = [
   },
 ];
 
-// helpers (unchanged)
+// ── Helpers (unchanged) ───────────────────────────────────────────────────────
+
 export function getFlowerById(id: string): Flower | undefined {
   return FLOWERS.find((f) => f.id === id);
 }
