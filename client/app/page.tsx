@@ -296,17 +296,31 @@ export default function BouquetBuilderPage() {
                     </p>
                   )}
 
-                  {generatedPreview && (
-                    <div className="mt-5">
-                      <div className="border-t mb-3" style={{ borderColor: dark ? "rgba(147,197,253,0.15)" : "rgba(203,213,225,0.7)" }} />
-                      <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: dark ? "rgb(100 116 139)" : "rgb(148 163 184)" }}>
-                        {tb("notepad.ai_preview_label")}
-                      </p>
-                      <p className="text-sm leading-relaxed" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: dark ? "rgb(226 232 240)" : "rgb(15 23 42)" }}>
-                        {generatedPreview}
-                      </p>
-                    </div>
-                  )}
+                 {generatedPreview && (
+  <div className="mt-5">
+    <div
+      className="border-t mb-3"
+      style={{
+        borderColor: dark
+          ? "rgba(147,197,253,0.15)"
+          : "rgba(203,213,225,0.7)",
+      }}
+    />
+    <p
+      className="text-[11px] font-semibold uppercase tracking-widest mb-2"
+      style={{ color: dark ? "rgb(100 116 139)" : "rgb(148 163 184)" }}
+    >
+      {tb("notepad.ai_preview_label")}
+    </p>
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img
+      src={generatedPreview}
+      alt="Your composed bouquet"
+      className="w-full rounded-xl object-cover shadow-md"
+      style={{ maxHeight: "220px" }}
+    />
+  </div>
+)}
                 </div>
               </div>
             </div>
