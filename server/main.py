@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-
+from dotenv import load_dotenv
+load_dotenv()
 from routes.generate import router as generate_router
 
 app = FastAPI(title="Bouquet Builder API", version="1.0.0")
